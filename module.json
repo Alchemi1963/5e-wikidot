@@ -1,0 +1,20 @@
+{
+    "name": "5e-wikidot",
+    "title": "5e Wikidot Import",
+    "description": "A collection of 5e wikidot content",
+    "version": "1.0.0",
+    "author": "Alchemi1963",
+    "minimumCoreVersion": "0.8.6",
+    "compatibleCoreVersion": "9",
+    "packs": [
+        {
+            "name": "spells",
+            "label": "5e Spells",
+            "path": "./packs/spells.db",
+            "entity": "Spell",
+            "type": "Spell"
+        }
+    ],
+    "manifest": "https://gitlab.com/encounterlibrary/my-content-module/-/raw/main/module.json",
+    "download": "https://gitlab.com/encounterlibrary/my-content-module/-/raw/main/my-content-module.zip"
+  }
