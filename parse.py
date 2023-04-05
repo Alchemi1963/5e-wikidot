@@ -5,9 +5,6 @@ import re
 import string
 import traceback
 
-# format for db
-# {"_id":"kKv7GwOuFovGUWtK","name":"Blade Ward","type":"spell","img":"icons/svg/fire-shield.svg","data":{"description":{"value":"<p>You extend your hand and trace a sigil of warding in the air. Until the end of your next turn, you have resistance against bludgeoning, piercing, and slashing damage dealt by weapon attacks.</p>","chat":"","unidentified":""},"source":"Player's Handbook","activation":{"type":"action","cost":1,"condition":""},"duration":{"value":1,"units":"round"},"target":{"value":null,"width":null,"units":"self","type":""},"range":{"value":null,"long":null,"units":"self"},"uses":{"value":null,"max":"","per":""},"consume":{"type":"","target":"","amount":null},"ability":"","actionType":"other","attackBonus":"0","chatFlavor":"","critical":{"threshold":null,"damage":""},"damage":{"parts":[["","bludgeoning"]],"versatile":""},"formula":"","save":{"ability":"","dc":null,"scaling":"spell"},"level":0,"school":"abj","components":{"value":"","vocal":true,"somatic":true,"material":false,"ritual":false,"concentration":false},"materials":{"value":"","consumed":false,"cost":0,"supply":0},"preparation":{"mode":"prepared","prepared":false},"scaling":{"mode":"none","formula":""}},"effects":[{"_id":"RL134Mwf7zbeWje3","changes":[{"key":"Bludgeoning","mode":1,"value":"0.5"},{"key":"Piercing","mode":1,"value":"0.5"},{"key":"Slashing","mode":1,"value":"0.5"}],"disabled":false,"duration":{"rounds":1,"startTime":0},"icon":"icons/svg/shield.svg","label":"Resistance","origin":"Item.b4427ysQc5erIPuZ","transfer":true,"flags":{},"tint":"#cc0000"}],"folder":null,"sort":0,"permission":{"default":0,"EbhaPUSsc0xE98gi":3},"flags":{"core":{"sourceId":"Item.b4427ysQc5erIPuZ"}}}
-
 # re patterns
 p_name = re.compile("page-title.+<span>([^<]+)")
 p_src = re.compile("Source: ([^<]+)")
@@ -28,8 +25,12 @@ spells = []
 newline = "\n"
 empty = ""
 
+icons = {}
 
 class Spell:
+
+	icons = "icons/magic/"
+
 	def __init__(self, name, desc, source, casting_time, duration, target, sp_range, action_type, level, school,
 	             components, concentration=False, ritual=False, scaling = None, save = None):
 		self._id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
@@ -144,13 +145,113 @@ class Spell:
 
 		self.sort = 0
 		self.flags = {}
-		self.img = "icons/svg/fire-shield.svg"
+		self.img = ""#self.chooseImg()
 		self.effects = []
 		self.folder = None
 
 		self._stats = {"systemId": "dnd5e", "systemVersion": "2.1.0", "coreVersion": "10.291"}
 
 		self.writeToFile()
+
+	def chooseImg(self):
+		img = ""
+
+		#first filter by key word
+		if "air" in self.name:
+			img =  "air/" + random.choice(icons["air"])
+		elif "gas" in self.name:
+			img =  "air/" + random.choice(icons["air"][12:33])
+		elif "wind" in self.name:
+			img =  "air/" + random.choice(list(icons["air"][i] for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 57, 58, 59, 60, 61, 62, 63, 64]))
+		elif "shield" in self.name:
+			img =  "defensive/" + random.choice(icons["defensive"][8:38])
+		elif "protect" in self.name:
+			img =  "defensive/" + random.choice(icons["defensive"])
+		elif "skin" in self.name:
+			img =  "defensive/" + icons["air"][1]
+		elif "earth" in self.name:
+			img =  "earth/" + random.choice(list(icons["air"][i] for i in [1, 2, 3, 4, 49]))
+		elif "stone" in self.name or "boulder" in self.name or "rock" in self.name:
+			img =  "earth/" + random.choice(list(icons["air"][i] for i in [22, 23, 24, 26, 30, 31, 32, 33, 34, 35, 36, 37]))
+		elif "lightning" in self.name or "thunder" in self.name:
+			img =  "lightning" + random.choice(icons["lightning"])
+		elif "entangle" in self.name or "vine" in self.name:
+			img =  "nature/" + random.choice(icons["nature"][55:80])
+		elif "vision" in self.name or "see" in self.name:
+			img =  "perception/" + random.choice(icons["perception"])
+		elif "time" in self.name:
+			img =  "time/" + random.choice(icons["time"])
+		elif "ice" in self.name:
+			img =  "water/" + random.choice(list(icons["water"][i] for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 17, 18, 19, 85, 86, 87, 88, 89, 90]))
+		elif "water" in self.name:
+			img =  "water/" + random.choice(list(icons["water"][i] for i in [21, 22, 23, 25]))
+		elif "bubble" in self.name:
+			img =  "water/" + random.choice(list(icons["water"][i] for i in [11, 12, 13, 21, 22, 23, 25]))
+
+		#second filter by damage type
+		if len(self.system["damage"]["parts"]) > 0:
+			match self.system["damage"]["parts"][0][1].lower():
+				case "acid":
+					img =  self.chooseImgAcid()
+				case "bludgeoning":
+					img =  self.chooseImgBlud()
+				case "cold":
+					img =  self.chooseImgCold()
+				case "fire":
+					img =  self.chooseImgFire()
+				case "lightning":
+					img =  self.chooseImgLigh()
+				case "necrotic":
+					img =  self.chooseImgNecr()
+				case "piercing":
+					img =  self.chooseImgPier()
+				case "poison":
+					img =  self.chooseImgPois()
+				case "psychic":
+					img =  self.chooseImgPsyc()
+				case "radiant":
+					img =  self.chooseImgRadi()
+				case "slashing":
+					img =  self.chooseImgSlas()
+				case "thunder":
+					img =  self.chooseImgThun()
+				case "healing":
+					img =  self.chooseImgHeal()
+				case "temphp":
+					img =  self.chooseImgHeal()
+				case _:
+					img = random.choice(icons["symbols"])
+
+		return Spell.icons + img
+
+	def chooseImgAcid(self):
+		ics = icons["acid"]
+		c = ""
+		if "splash" in self.nameor or "orb" in self.name or "sphere" in self.name:
+			c = random.choice([ics[2], ics[4], ics[5], ics[7], ics[11], ics[12], ics[13], ics[15]])
+		elif "stream" in self.name or "arrow" in self.name or "bolt" in self.name:
+			c = random.choice([ics[0], ics[1], ics[2], ics[3], ics[15], ics[16]])
+		else:
+			c = random.choice(ics)
+
+		return "acid/" + c
+
+	def chooseImgBlud(self):
+		return "symbols/" + random.choice(icons["symbols"][29:41])
+
+	def chooseImgCold(self):
+		return "water/" + random.choice(list(icons["water"][i] for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 16, 17, 18, 19, 85, 86, 87, 88, 89, 90]))
+
+	def chooseImgFire(self):
+		ics = icons["fire"]
+		c = ""
+		if "blade" in self.name:
+			c = random.choice(ics[14:41])
+		elif "ball" in self.name:
+			c = random.choice(list(ics[i] for i in [118, 120, 121, 124, 127]))
+		else:
+			c = random.choice(list(ics[i] for i in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 144, 145, 146, 147, 148]))
+		return "fire/" + c
 
 	def __str__(self):
 		return json.dumps(
@@ -297,13 +398,22 @@ def main():
 			except:
 				print(html)
 				print(traceback.format_exc())
-			finally:
-				print(f"{html} was parsed.")
 
 
 if __name__ == "__main__":
+	#reset programs
 	if os.path.exists(os.path.join("public", "spells.json")):
 		os.remove(os.path.join("public", "spells.json"))
+
+	if os.path.exists(os.path.join("packs", "spells.db")):
+		os.remove(os.path.join("packs", "spells.db"))
+
+	#index icons
+	for (dirpath, dirnames, filenames) in os.walk("icons"):
+		if filenames == []:
+			continue
+		icons[dirpath.replace("icons", "")[1:]] = filenames
+
 	main()
 	with open(os.path.join("public", "spells.json"), "wt", encoding="utf8") as f:
 		f.write(json.dumps(spells))

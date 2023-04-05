@@ -19,4 +19,5 @@ Hooks.once("ready", async () => {
             await compendium.importDocument(S);
         }
     }
+    await compendium.configure( {"locked": true });
 })
