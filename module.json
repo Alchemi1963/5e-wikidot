@@ -1,20 +1,33 @@
 {
-    "name": "5e-wikidot",
-    "title": "5e Wikidot Import",
-    "description": "A collection of 5e wikidot content",
-    "version": "1.0.0",
-    "author": "Alchemi1963",
-    "minimumCoreVersion": "0.8.6",
-    "compatibleCoreVersion": "10",
-    "packs": [
-        {
-            "name": "spells",
-            "label": "5e Spells",
-            "path": "./packs/spells.db",
-            "entity": "Spell",
-            "type": "item"
-        }
-    ],
-    "manifest": "https://raw.githubusercontent.com/Alchemi1963/5e-wikidot/main/module.json",
-    "download": "https://gitlab.com/encounterlibrary/my-content-module/-/raw/main/my-content-module.zip"
-  }
+  "name": "5e-wikidot",
+  "title": "5e Wikidot Import",
+  "description": "A collection of 5e wikidot content",
+  "version": "1.0.0",
+  "authors": [
+    {
+      "name": "Alchemi1963"
+    },
+    {
+      "name": "ChatGPT"
+    }
+  ],
+  "compatibility": {
+    "minimum": "10"
+  },
+  "scripts": [
+    "./module.js"
+  ],
+  "packs": [
+    {
+      "name": "spells",
+      "label": "5e Spells",
+      "path": "./packs/spells.db",
+      "entity": "Item",
+      "type": "Item",
+      "system": "dnd5e",
+      "locked": "false"
+    }
+  ],
+  "manifest": "https://raw.githubusercontent.com/Alchemi1963/5e-wikidot/main/module.json",
+  "download": "https://gitlab.com/encounterlibrary/my-content-module/-/raw/main/my-content-module.zip"
+}

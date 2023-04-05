@@ -9,18 +9,18 @@ import traceback
 # {"_id":"kKv7GwOuFovGUWtK","name":"Blade Ward","type":"spell","img":"icons/svg/fire-shield.svg","data":{"description":{"value":"<p>You extend your hand and trace a sigil of warding in the air. Until the end of your next turn, you have resistance against bludgeoning, piercing, and slashing damage dealt by weapon attacks.</p>","chat":"","unidentified":""},"source":"Player's Handbook","activation":{"type":"action","cost":1,"condition":""},"duration":{"value":1,"units":"round"},"target":{"value":null,"width":null,"units":"self","type":""},"range":{"value":null,"long":null,"units":"self"},"uses":{"value":null,"max":"","per":""},"consume":{"type":"","target":"","amount":null},"ability":"","actionType":"other","attackBonus":"0","chatFlavor":"","critical":{"threshold":null,"damage":""},"damage":{"parts":[["","bludgeoning"]],"versatile":""},"formula":"","save":{"ability":"","dc":null,"scaling":"spell"},"level":0,"school":"abj","components":{"value":"","vocal":true,"somatic":true,"material":false,"ritual":false,"concentration":false},"materials":{"value":"","consumed":false,"cost":0,"supply":0},"preparation":{"mode":"prepared","prepared":false},"scaling":{"mode":"none","formula":""}},"effects":[{"_id":"RL134Mwf7zbeWje3","changes":[{"key":"Bludgeoning","mode":1,"value":"0.5"},{"key":"Piercing","mode":1,"value":"0.5"},{"key":"Slashing","mode":1,"value":"0.5"}],"disabled":false,"duration":{"rounds":1,"startTime":0},"icon":"icons/svg/shield.svg","label":"Resistance","origin":"Item.b4427ysQc5erIPuZ","transfer":true,"flags":{},"tint":"#cc0000"}],"folder":null,"sort":0,"permission":{"default":0,"EbhaPUSsc0xE98gi":3},"flags":{"core":{"sourceId":"Item.b4427ysQc5erIPuZ"}}}
 
 # re patterns
-p_name = re.compile("page-title.+<span>(.+)</span>")
-p_src = re.compile("Source: (.+)</p>")
+p_name = re.compile("page-title.+<span>([^<]+)")
+p_src = re.compile("Source: ([^<]+)")
 p_lvl = re.compile("<em>(\\d+).+level.+</em>")
-p_school = re.compile("<em>.+level (.+)</em>")
+p_school = re.compile("<em>.+level ([^<]+)")
 p_school_cantrip = re.compile("<em>(.+) cantrip.*</em>")
 p_ca_value = re.compile("Casting Time:</strong> (\\d+)")
-p_ca_units = re.compile("Casting Time:</strong> \\d+ (.+)<")
-p_range = re.compile("Range:</strong> (.+)<")
-p_components = re.compile("Components:</strong> (.+)<")
-p_duration = re.compile("Duration:</strong> [A-z\\s]*(\\d+) (.+)<")
-p_duration_concentration = re.compile("Duration:</strong> Concentration, [U|u]p to (\\d+) (.+)<")
-p_descr = re.compile("Duration:.+</p>\\n([\\s\\S]+)<p><strong><em>")
+p_ca_units = re.compile("Casting Time:</strong> \\d+ ([^<]+)")
+p_range = re.compile("Range:</strong> ([^<]+)")
+p_components = re.compile("Components:</strong> (.+)<strong>Dur")
+p_duration = re.compile("Duration:</strong> [A-z\\s]*(\\d+) ([^<]+)")
+p_duration_concentration = re.compile("Duration:</strong> Concentration, [U|u]p to (\\d+) ([^<]+)")
+p_descr = re.compile("(?:Duration.+</p>)(<p>.+)(?:<p><strong><em>)")
 
 # spell db
 spells = []
@@ -159,20 +159,21 @@ class Spell:
 			 "_stats": self._stats}, ensure_ascii=False).encode("utf8").decode()
 
 	def writeToFile(self):
-		if not os.path.exists("src"):
-			os.mkdir("src")
+		if not os.path.exists("public"):
+			os.mkdir("public")
 		else:
 			writeDir = ""
 			if self.system["level"] == 0:
-				writeDir = "cantrips"
+				writeDir = "cantrip"
 			else:
 				writeDir = f"level-{self.system['level']}"
 
-			writeDir = os.path.join("src", "spells", writeDir)
+			writeDir = os.path.join("public", "spells", writeDir)
 			if not os.path.exists(writeDir):
 				os.makedirs(writeDir, exist_ok=True)
 
 			with open(os.path.join(writeDir, f"{self.name.replace(' ', '-').replace('/', '-').replace(os.path.sep, '-').lower()}.json"), "wt", encoding="utf8") as f:
+				spells.append(f.name.replace("\\", "/"))
 				f.write(self.__str__())
 
 def main():
@@ -182,7 +183,7 @@ def main():
 
 		with open(os.path.join("src", html), "rt", encoding="utf8") as htmlfile:
 			try:
-				sp = htmlfile.read()
+				sp = htmlfile.read().replace("\n", "")
 
 				if "you want to access does not exist." in sp:
 					continue
@@ -213,7 +214,7 @@ def main():
 				target = [None, None, "ft"]  # value type units
 				spell_range = [None, None]  # value units
 
-				components = p_components.search(sp).group(1)
+				components = p_components.search(sp).group(1).replace("<br />", "")
 				dur = p_duration_concentration.search(sp)
 				if dur:
 					dur = dur.groups()
@@ -301,6 +302,8 @@ def main():
 
 
 if __name__ == "__main__":
-	if os.path.exists(os.path.join("packs", "spells.db")):
-		os.remove(os.path.join("packs", "spells.db"))
+	if os.path.exists(os.path.join("public", "spells.json")):
+		os.remove(os.path.join("public", "spells.json"))
 	main()
+	with open(os.path.join("public", "spells.json"), "wt", encoding="utf8") as f:
+		f.write(json.dumps(spells))
