@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import re
@@ -27,77 +28,158 @@ spells = []
 newline = "\n"
 empty = ""
 
+
 class Spell:
 	def __init__(self, name, desc, source, casting_time, duration, target, sp_range, action_type, level, school,
-	             components, concentration=False, ritual=False):
-		self._id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=16))
+	             components, concentration=False, ritual=False, scaling = None, save = None):
+		self._id = ''.join(random.choices(string.ascii_letters + string.digits, k=16))
 		self.name = name
-		self.img = "icons/magic/symbols/star-yellow.webp"
-		self.description = desc
-		self.source = source
-		self.activation_type = casting_time[1]
-		self.activation_cost = casting_time[0]
-		self.duration_value = duration[0]
-		self.duration_units = duration[1]
-		self.target_value = target[0]
-		self.target_type = target[1]
-		self.target_units = target[2]
-		self.range_value = sp_range[0]
-		self.range_units = sp_range[1]
-		self.actionType = action_type  # rsak, msak, util, heal, save, other
-		self.level = level
-		self.school = school
+		self.ownership = {"default": 0}
+		self.type = "spell"
 
-		self.vocal = False
-		self.somatic = False
-		self.material = False
-		self.mvalue = ""
+		self.system = {}
+		self.system["description"] = {}
+		self.system["description"]["value"] = desc.replace("\n", "<br>")
+		self.system["description"]["chat"] = None
+		self.system["description"]["unidentified"] = None
+		self.system["source"] = source
 
-		# components
-		if "V" in components:
-			self.vocal = True
-		if "S" in components:
-			self.somatic = True
-		if "M" in components:
-			self.material = True
-			self.mvalue = re.sub(".+\\((.+)\\)", "\\1", components).strip()
-		self.ritual = ritual
-		self.concentration = concentration
+		self.system["activation"] = {}
+		self.system["activation"]["type"] = casting_time[1]
+		self.system["activation"]["cost"] = int(casting_time[0])
+		self.system["activation"]["condition"] = None
 
-		spells.append(self)
+		self.system["duration"] = {}
+		self.system["duration"]["value"] = duration[0]
+		self.system["duration"]["units"] = duration[1]
+		self.system["cover"] = None
 
-		self.saveToDB()
+		self.system["target"] = {}
+		self.system["target"]["value"] = target[0]
+		self.system["target"]["width"] = None
+		self.system["target"]["units"] = target[2]
+		self.system["target"]["type"] = target[1]
+
+		self.system["range"] = {}
+		self.system["range"]["value"] = sp_range[0]
+		self.system["range"]["long"] = None
+		self.system["range"]["units"] = sp_range[1]
+
+		self.system["uses"] = {}
+		self.system["uses"]["value"] = None
+		self.system["uses"]["max"] = None
+		self.system["uses"]["per"] = None
+		self.system["uses"]["recovery"] = None
+
+		self.system["consume"] = {}
+		self.system["consume"]["type"] = None
+		self.system["consume"]["target"] = None
+		self.system["consume"]["amount"] = None
+
+		self.system["ability"] = None
+		self.system["actionType"] = action_type
+		self.system["attackBonus"] = None
+		self.system["chatFlavor"] = None
+
+		self.system["critical"] = {}
+		self.system["critical"]["threshold"] = None
+		self.system["critical"]["damage"] = None
+
+		self.system["damage"] = {}
+		self.system["damage"]["parts"] = []
+
+		match = re.search("(\\d+d\\d+ (?:\\+ your spellcasting ability modifier )?\\w+) damage", desc)
+		if match:
+			for group in match.groups():
+				group = group.replace(" + your spellcasting ability modifier", "+@mod")
+				self.system["damage"]["parts"].append(group.split(" "))
+		else:
+			match = re.search("(?:(?:heal )|(?:hit points? equal to ))(\\d+d\\d+) ?(?:\\+ your spellcasting ability modifier)?", desc)
+			if match and not "temporary" in desc:
+				self.system["damage"]["parts"].append((match.group(1), "healing"))
+			elif match:
+				self.system["damage"]["parts"].append((match.group(1), "temphp"))
+
+		self.system["damage"]["versatile"] = None
+
+		self.system["formula"] = None
+
+		self.system["save"] = {}
+		self.system["save"]["ability"] = save
+		self.system["save"]["dc"] = None
+		self.system["save"]["scaling"] = "spell"
+
+		self.system["level"] = level
+		self.system["school"] = school
+
+		self.system["components"] = {}
+		self.system["components"]["vocal"] = "V" in components
+		self.system["components"]["somatic"] = "S" in components
+		self.system["components"]["material"] = "M" in components
+		self.system["components"]["ritual"] = ritual
+		self.system["components"]["concentration"] = concentration
+
+		self.system["materials"] = {}
+		if self.system["components"]["material"]:
+			self.system["materials"]["value"] = re.search(".+\\((.+)\\)", components).group(1)
+			self.system["materials"]["consumed"] = "consume" in components
+			match = re.search(".+(\\d+)GP", components)
+			if match:
+				self.system["materials"]["cost"] = match.group(1)
+			else:
+				self.system["materials"]["cost"] = None
+		else:
+			self.system["materials"]["value"] = None
+			self.system["materials"]["consumed"] = False
+			self.system["materials"]["cost"] = None
+		self.system["materials"]["supply"] = 0
+
+		self.system["preparation"] = {}
+		self.system["preparation"]["mode"] = "prepared"
+		self.system["preparation"]["prepared"] = "false"
+
+		self.system["scaling"] = {}
+		self.system["scaling"]["mode"] = scaling[1]
+		self.system["scaling"]["formula"] = scaling[0]
+
+		self.sort = 0
+		self.flags = {}
+		self.img = "icons/svg/fire-shield.svg"
+		self.effects = []
+		self.folder = None
+
+		self._stats = {"systemId": "dnd5e", "systemVersion": "2.1.0", "coreVersion": "10.291"}
+
+		self.writeToFile()
 
 	def __str__(self):
-		return f"Spell:\n" \
-		       f"\tname:\t\t\t{self.name}\n" \
-		       f"\tsource:\t\t\t{self.source}\n" \
-		       f"\tlevel:\t\t\t{self.level}\n" \
-		       f"\tschool:\t\t\t{self.school}\n" \
-		       f"\tduration:\t\t{self.duration_value} {self.duration_units}\n" \
-		       f"\tcomponents:\t\t{self.vocal, self.somatic, self.material, self.mvalue}\n" \
-		       f"\tritual:\t\t\t{self.ritual}\n" \
-		       f"\tconcentration:\t{self.concentration}\n" \
-		       f"\tdescription\t\t{self.description}\n" \
-		       f"\tactivation:\t\t{self.activation_cost} {self.activation_type}\n" \
-		       f"\ttarget:\t\t\t{self.target_value} {self.target_type} {self.target_units}\n" \
-		       f"\trange:\t\t\t{self.range_value} {self.range_units}\n" \
-		       f"\tactionType:\t\t{self.actionType}"
+		return json.dumps(
+			{"_id": self._id, "name": self.name, "ownership": self.ownership, "type": self.type, "system": self.system,
+			 "sort": self.sort, "flags": self.flags, "img": self.img, "effects": self.effects, "folder": self.folder,
+			 "_stats": self._stats}, ensure_ascii=False).encode("utf8").decode()
 
-	def saveToDB(self):
-		if not os.path.exists("packs"):
-			os.mkdir("packs")
+	def writeToFile(self):
+		if not os.path.exists("src"):
+			os.mkdir("src")
+		else:
+			writeDir = ""
+			if self.system["level"] == 0:
+				writeDir = "cantrips"
+			else:
+				writeDir = f"level-{self.system['level']}"
 
-		strs = f'{{"_id": {self._id},"name": {self.name},"type": "spell","img": {self.img},"data": {{"description": {{"value": {self.description},"chat": "","unidentified": ""}},"source": {self.source},"activation": {{"type": {self.activation_type},"cost": {self.activation_cost},"condition": ""}},"duration": {{"value": {self.duration_value},"units": {self.duration_units}}},"target": {{"value": {self.target_value},"width": null,"units": {self.target_units},"type": {self.target_type}}},"range": {{"value": {self.range_value},"long": null,"units": {self.range_units}}},"uses": {{"value": null,"max": "","per": ""}},"consume": {{"type": "","target": "","amount": null}},"ability": "","actionType": {self.actionType},"attackBonus": "0","chatFlavor": "","critical": {{"threshold": null,"damage": ""}},"damage": {{}},"formula": "","save": {{"ability": "","dc": null,"scaling": "spell"}},"level": {self.level},"school": {self.school},"components": {{"value": {self.mvalue},"vocal": {self.vocal},"somatic": {self.somatic},"material": {self.material},"ritual": {self.ritual},"concentration": {self.concentration}}},"materials": {{"value": {self.mvalue},"consumed": false,"cost": 0,"supply": 0}},"preparation": {{"mode": "prepared","prepared": false}},"scaling": {{"mode": "none","formula": ""}}}},"effects": [],"folder": null,"sort": 0,"permission": {{"default": 0}}}}'.replace("\n", "")
+			writeDir = os.path.join("src", "spells", writeDir)
+			if not os.path.exists(writeDir):
+				os.makedirs(writeDir, exist_ok=True)
 
-		print(strs)
-		with open(os.path.join("packs", "spells.db"), "at", encoding="utf8") as db:
-			db.write(strs)
-			db.write("\n")
-
+			with open(os.path.join(writeDir, f"{self.name.replace(' ', '-').replace('/', '-').replace(os.path.sep, '-').lower()}.json"), "wt", encoding="utf8") as f:
+				f.write(self.__str__())
 
 def main():
 	for html in os.listdir("src"):
+		if not html.endswith(".html"):
+			continue
+
 		with open(os.path.join("src", html), "rt", encoding="utf8") as htmlfile:
 			try:
 				sp = htmlfile.read()
@@ -121,15 +203,15 @@ def main():
 				if "transmutation" in school.lower():
 					school = "trs"
 				else:
-					school = school[:2]
+					school = school.strip()[:3]
 
 				ca_value = p_ca_value.search(sp).group(1)
 				ca_units = p_ca_units.search(sp).group(1)
 
 				sp_range = p_range.search(sp).group(1)
 
-				target = ["null", "null", "ft"]  # value type units
-				spell_range = ["null", "null"]  # value units
+				target = [None, None, "ft"]  # value type units
+				spell_range = [None, None]  # value units
 
 				components = p_components.search(sp).group(1)
 				dur = p_duration_concentration.search(sp)
@@ -142,11 +224,11 @@ def main():
 					if dur:
 						dur = dur.groups()
 					elif "Duration:</strong> Instant" in sp:
-						dur = ["null", "inst"]
+						dur = [None, "inst"]
 					elif "Duration:</strong> Until dispelled" in sp:
-						dur = ["null", "perm"]
+						dur = [None, "perm"]
 					elif "Duration:</strong> Special" in sp:
-						dur = ["null", "spec"]
+						dur = [None, "spec"]
 				dur = (dur[0], re.sub("(\\w+)s", "\\1", dur[1]))
 
 				desc = p_descr.search(sp).group(1)
@@ -154,7 +236,7 @@ def main():
 				if "self" == sp_range.lower():
 					spell_range[1] = "self"
 					target[1] = "self"
-					target[2] = "null"
+					target[2] = None
 
 				elif "self" in sp_range.lower():
 					target[0] = re.search("(\\d+)", sp_range).group(0)
@@ -175,8 +257,42 @@ def main():
 					elif "touch" in sp_range.lower():
 						spell_range[1] = "touch"
 
+				if spell_range[1] == "feet" or spell_range[1] == "foot":
+					spell_range[1] = "ft"
+
+				scaling = [None, None]
+
+				if "at higher levels" in sp.lower():
+					match = re.search("(?:A|a)t (?:H|h)igher (?:L|l)evels.+</strong> .+increases by (\d+d\d+).+</p>", desc)
+					if match:
+						scaling[0] = match.group(1)
+						if lvl == 0:
+							scaling[1] = "cantrip"
+						else:
+							scaling[1] = "level"
+
+				save = None
+				if "saving throw" in desc:
+					match = re.search("(\\w+) saving throw", desc)
+					if match:
+						match match.group(1).lower():
+							case "strength":
+								save = "str"
+							case "dexterity":
+								save = "dex"
+							case "constitution":
+								save = "con"
+							case "intelligence":
+								save = "int"
+							case "wisdom":
+								save = "wis"
+							case "charisma":
+								save = "cha"
+
+
 				Spell(name, desc, src, (ca_value, ca_units), dur, target, spell_range, "spell", lvl, school, components,
-				      concentration, ritual)
+				      concentration, ritual, scaling, save)
+
 			except:
 				print(html)
 				print(traceback.format_exc())
